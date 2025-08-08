@@ -1,0 +1,28 @@
+name: Build tracker rules
+
+on:
+  schedule:                       # 每小时跑一次
+    - cron:  '0 * * * *'          # GitHub cron 使用 UTC
+  workflow_dispatch: {}           # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate rule file
+        run: python src/main.py
+
+      - name: Commit & push if changed
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "dist/tracker_list_rule.yaml"
+          message: "auto: update tracker rules"
+          default_author: github_actions
+          push: true
