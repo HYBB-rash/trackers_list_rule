@@ -3,7 +3,13 @@
 
 import requests
 
+
 def fetch_trackers(url: str) -> list:
+    """
+    从指定 URL 获取 trackers 列表
+    :param url: trackers 列表的 URL
+    :return: trackers 列表
+    """
     response = requests.get(url)
     response.raise_for_status()
     return response.text.splitlines()
