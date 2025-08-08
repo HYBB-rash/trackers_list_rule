@@ -1,0 +1,75 @@
+# url: https://cf.trackerslist.com/all.txt
+# 根据 https://cf.trackerslist.com/all.txt 的内容生成 mihomo 可以识别的分流规则 rule set yaml
+
+import ipaddress
+import requests
+from urllib.parse import urlparse
+import yaml
+
+class IndentedDumper(yaml.Dumper):
+    def increase_indent(self, flow=False, indentless=False):
+        return super().increase_indent(flow, False)
+
+
+def fetch_trackers(url: str) -> list:
+    """
+    从指定 URL 获取 trackers 列表
+    :param url: trackers 列表的 URL
+    :return: trackers 列表
+    """
+    response = requests.get(url)
+    response.raise_for_status()
+    trackers = response.text.splitlines()
+
+    # 过滤掉空行和注释行
+    return [tracker.strip() for tracker in trackers if tracker.strip() and not tracker.startswith("#")]
+
+def generate_rule_set(trackers: list) -> dict:
+    """
+    生成规则集, 将里面的域名/ip地址提取出来，并转换为规则集格式
+    :param trackers: trackers 列表
+    :return: 规则集字典
+    """
+    
+    def __get_IP(hostname: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+        """
+        获取 IP 地址
+        :param hostname: 域名或 IP 地址
+        :return: IP 地址对象或 None
+        """
+        try:
+            return ipaddress.ip_address(hostname)
+        except ValueError:
+            return None
+
+    def __parse_tracker(tracker: str) -> str:
+        parsed = urlparse(tracker)
+        ip = __get_IP(parsed.hostname) if parsed.hostname else None
+        if ip is None:
+            # 如果是域名
+            return f"DOMAIN-SUFFIX,{parsed.hostname}"
+        
+        if isinstance(ip, ipaddress.IPv4Address):
+            # 如果是 IPv4 地址
+            return f"IP-CIDR,{ip}/32,no-resolve"
+        elif isinstance(ip, ipaddress.IPv6Address):
+            # 如果是 IPv6 地址
+            return f"IP-CIDR6,{ip}/128,no-resolve"
+        else:
+            raise ValueError(f"Unsupported IP address type: {ip}")
+            
+
+    return yaml.dump({
+        "payload": [__parse_tracker(tracker) for tracker in trackers if tracker.strip()]
+    }, allow_unicode=True, default_flow_style=False, indent=2, Dumper=IndentedDumper)
+
+if __name__ == "__main__":
+    url = "https://cf.trackerslist.com/all.txt"
+    trackers = fetch_trackers(url)
+    
+    # 生成规则集
+    rule_set = generate_rule_set(trackers)
+    
+    # 输出规则集
+    with open("dist/trackers_list_rule.yaml", "w", encoding="utf-8") as file:
+        file.write(rule_set)
