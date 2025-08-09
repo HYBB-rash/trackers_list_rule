@@ -21,6 +21,7 @@ def fetch_trackers(url: str) -> list:
     response = requests.get(url)
     response.raise_for_status()
     trackers = response.text.splitlines()
+    trackers.append("http://143.110.208.40/")
 
     # 过滤掉空行和注释行
     return [tracker.strip() for tracker in trackers if tracker.strip() and not tracker.startswith("#")]
